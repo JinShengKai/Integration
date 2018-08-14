@@ -1,0 +1,76 @@
+@CHARSET "UTF-8";
+
+html {
+	height: 100%;
+	margin: 0;
+}
+
+body {
+	height: 100%;
+	margin: 0;
+}
+
+.btn,input[type='text'],input[type='password'],input[type='file'] {
+	border-radius: 0;
+}
+
+.btn-default{
+	border-radius: 0;
+	font-size: 14px;
+	height: 34px;
+}
+
+.noradius {
+	border-radius: 0;
+}
+
+.icon-windows8 {
+	font-size: 27px;
+}
+
+.dropdown-menu,.col-md-2 {
+	text-align: center;
+}
+
+.icon-user,.icon-hammer,.icon-forward,li {
+	font-size: 16px;
+	margin: 0 auto;
+}
+
+.icon-home {
+	font-size: 20px;
+	margin: 0 auto;
+}
+
+.col-md-2 {
+	border: 1px solid #efefef;
+}
+
+.close-tab {
+	font-size: 10px;
+	position: absolute;
+	right: 5px;
+	top: 5px;
+	padding-left: 25px;
+	z-index: 100;
+	cursor: hand;
+	cursor: pointer;
+	color: #94A6B0;
+}
+
+.topbar-collapse {
+	float: right;
+}
+/*Tabs*/
+.iframeClass {
+	z-index: 1;
+	visibility: inherit;
+	width: 100%;
+	frameborder: 'no';
+	border: 0;
+	marginwidth: 0;
+	marginheight: 0;
+	scrolling-x: 'no';
+	scrolling-y: auto;
+	allowtransparency: true;
+}

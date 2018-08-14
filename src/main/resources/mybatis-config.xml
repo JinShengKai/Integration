@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+    <typeAliases>
+        <typeAlias alias="baseinfo" type="com.css.entity.BaseInfo"/>
+        <typeAlias alias="taskinfo" type="com.css.entity.TaskInfo"/>
+    </typeAliases>
+
+    <!-- 指定映射文件 -->
+    <mappers>
+        <mapper resource="mybatis/postgre-sqlmap-mapping.xml"/>
+        <mapper resource="mybatis/MySQL-sqlmap-mapping.xml"/>
+    </mappers>
+
+</configuration>

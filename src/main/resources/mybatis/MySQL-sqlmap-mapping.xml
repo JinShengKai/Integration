@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.css.interfaces">
+    <resultMap id="repairData" type="com.css.entity.RepairInfo">
+        <result property="projectName" column="projectname"/>
+        <result property="jobName" column="jobname"/>
+        <result property="fbk" column="fbk"/>
+        <result property="jx" column="jx"/>
+        <result property="cj" column="cj"/>
+        <result property="cyl" column="cyl"/>
+        <result property="bizdate" column="bizdate"/>
+    </resultMap>
+    <select id="findRepairData" resultMap="repairData">
+    SELECT a.projectname as projectname
+          ,a.jobname as jobname
+          ,a.count1 as fbk
+          ,a.count3 as jx
+          ,(a.count1-a.count3) as cj
+          ,ROUND((a.count1-a.count3)/a.count1 *100 ,2) as cyl
+          ,a.bizdate as bizdate
+      FROM CTABLE a
+      JOIN t_ypt_ls_job_new b
+        ON CONCAT(a.projectname,a.jobname) = UPPER(CONCAT(projectname,SUBSTR(b.ls_tab,4,100)))
+     WHERE a.bizdate=#{bizdate}
+       AND (ABS((a.count1-a.count3)/a.count1)>0.1 OR (a.count1-a.count3)>10000)
+     ORDER BY ABS((a.count1-a.count3)/a.count1) DESC;
+    </select>
+</mapper>

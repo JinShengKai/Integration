@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.css.interfaces">
+    <resultMap id="baseInfo" type="com.css.entity.BaseInfo">
+        <result property="name" column="name"/>
+        <result property="appId" column="app_id"/>
+        <result property="bizDate" column="biz_date"/>
+        <result property="taskCount" column="task_count"/>
+        <result property="statusNotRunning" column="status_not_running"/>
+        <result property="statusWaiting" column="status_waiting"/>
+        <result property="statusWaitingResource" column="status_waiting_resource"/>
+        <result property="statusRunning" column="status_running"/>
+        <result property="statusFailed" column="status_failed"/>
+        <result property="statusSucceed" column="status_succeed"/>
+        <result property="taskBegin" column="task_begin"/>
+        <result property="taskFinished" column="task_finished"/>
+        <result property="taskWorkingTime" column="task_working_time"/>
+
+    </resultMap>
+    <resultMap id="taskInfo" type="com.css.entity.TaskInfo">
+        <result property="taskId" column="task_id"/>
+        <result property="nodeName" column="node_name"/>
+        <result property="beginRunTime" column="begin_run_time"/>
+        <result property="finishedRunTime" column="finish_time"/>
+        <result property="projectName" column="pro_name"/>
+    </resultMap>
+    <!-- 查找 -->
+    <select id="findAllBaseMessage" resultMap="baseInfo" parameterType="java.sql.Timestamp">
+        select a.name as name
+        ,jg.app_id as app_id
+        ,jg.bizdate as biz_date
+        ,jg.task_count as task_count
+        ,jg.status_not_running as status_not_running
+        ,jg.status_waiting as status_waiting
+        ,jg.status_waiting_resource as status_waiting_resource
+        ,jg.status_running as status_running
+        ,jg.status_failed as status_failed
+        ,jg.status_succeed as status_succeed
+        ,jg.task_begin as task_begin
+        ,jg.task_finished as task_finished
+        ,to_char(jg.task_finished-jg.task_begin,'dd天HH24:MI:SS') as task_working_time
+        from phoenix_app_config a
+        left outer join (
+        select task_inst.app_id
+        ,task_inst.bizdate
+        ,COUNT(task_inst.task_id) as task_count
+        ,sum(case when task_inst.status=1 then 1 else 0 end) as status_not_running
+        ,sum(case when task_inst.status=2 then 1 else 0 end) as status_waiting
+        ,sum(case when task_inst.status=3 then 1 else 0 end) as status_waiting_resource
+        ,sum(case when task_inst.status=4 then 1 else 0 end) as status_running
+        ,sum(case when task_inst.status=5 then 1 else 0 end) as status_failed
+        ,sum(case when task_inst.status=6 then 1 else 0 end) as status_succeed
+        ,min(begin_run_time) as task_begin
+        ,max(finish_time) as task_finished
+        from phoenix_task_inst task_inst
+        WHERE
+        task_inst.task_type in ('0','5')
+        and     task_inst.gmtdate = #{gmtDate}
+
+        group by app_id,bizdate) jg
+        on a.app_id=jg.app_id
+        where upper(a.name) like 'SC_J%T' or upper(a.name) like 'SC_J%_GSZJ'
+        order by a.name;
+    </select>
+    <select id="findCommonBaseInfo" resultMap="baseInfo" parameterType="java.sql.Timestamp">
+        select
+        conf.name                                                     as name,
+        jg.app_id                                                  as app_id,
+        jg.bizdate                                                 as biz_date,
+        jg.task_count                                              as task_count,
+        jg.status_not_running                                      as status_not_running,
+        jg.status_waiting                                          as status_waiting,
+        jg.status_waiting_resource                                 as status_waiting_resource,
+        jg.status_running                                          as status_running,
+        jg.status_failed                                           as status_failed,
+        jg.status_succeed                                          as status_succeed,
+        jg.task_begin                                              as task_begin,
+        jg.task_finished                                           as task_finished,
+        to_char(jg.task_finished - jg.task_begin, 'dd天HH24:MI:SS') as task_working_time
+        from phoenix_app_config conf
+        left outer join ((select
+        a.app_id,
+        a.bizdate,
+        a.task_count,
+        a.status_not_running,
+        a.status_waiting,
+        a.status_waiting_resource,
+        a.status_running,
+        a.status_failed,
+        a.status_succeed,
+        (case when b.app_id is null
+        then a.task_begin
+        else b.finish_time end) as task_begin,
+        a.task_finished
+        from
+        (select
+        task_inst.app_id,
+        task_inst.bizdate,
+        COUNT(task_inst.task_id) as task_count,
+        sum(case when task_inst.status = 1
+        then 1
+        else 0 end)          as status_not_running,
+        sum(case when task_inst.status = 2
+        then 1
+        else 0 end)          as status_waiting,
+        sum(case when task_inst.status = 3
+        then 1
+        else 0 end)          as status_waiting_resource,
+        sum(case when task_inst.status = 4
+        then 1
+        else 0 end)          as status_running,
+        sum(case when task_inst.status = 5
+        then 1
+        else 0 end)          as status_failed,
+        sum(case when task_inst.status = 6
+        then 1
+        else 0 end)          as status_succeed,
+        min(begin_run_time)      as task_begin,
+        max(finish_time)         as task_finished
+        from phoenix_task_inst task_inst
+        WHERE
+        task_inst.task_type in ('0', '5')
+        and node_name not in ('check_gs','check_hx','datax_oracle_to_odps','make_conf','mget','ossput','update_version_ls')
+        and node_name not like 'll_%'
+        and node_name not like 'n_%'
+        and task_inst.gmtdate = #{gmtDate}
+
+        group by app_id, bizdate) a
+        left outer join (
+        select
+        app_id,
+        finish_time
+        from phoenix_task_inst
+        where node_name = 'check_data' and gmtdate=#{gmtdate}) b
+        on a.app_id = b.app_id)) jg
+        on conf.app_id = jg.app_id
+        where upper(conf.name) like 'SC_J%T' or upper(conf.name) like 'SC_J%_GSZJ'
+        order by conf.name;
+    </select>
+    <select id="findNewBaseInfo" resultMap="baseInfo" parameterType="java.sql.Timestamp">
+        select
+        conf.name                                                     as name,
+        jg.app_id                                                  as app_id,
+        jg.bizdate                                                 as biz_date,
+        jg.task_count                                              as task_count,
+        jg.status_not_running                                      as status_not_running,
+        jg.status_waiting                                          as status_waiting,
+        jg.status_waiting_resource                                 as status_waiting_resource,
+        jg.status_running                                          as status_running,
+        jg.status_failed                                           as status_failed,
+        jg.status_succeed                                          as status_succeed,
+        jg.task_begin                                              as task_begin,
+        jg.task_finished                                           as task_finished,
+        to_char(jg.task_finished - jg.task_begin, 'dd天HH24:MI:SS') as task_working_time
+        from phoenix_app_config conf
+        left outer join (select
+        task_inst.app_id,
+        task_inst.bizdate,
+        COUNT(task_inst.task_id) as task_count,
+        sum(case when task_inst.status = 1
+        then 1
+        else 0 end)          as status_not_running,
+        sum(case when task_inst.status = 2
+        then 1
+        else 0 end)          as status_waiting,
+        sum(case when task_inst.status = 3
+        then 1
+        else 0 end)          as status_waiting_resource,
+        sum(case when task_inst.status = 4
+        then 1
+        else 0 end)          as status_running,
+        sum(case when task_inst.status = 5
+        then 1
+        else 0 end)          as status_failed,
+        sum(case when task_inst.status = 6
+        then 1
+        else 0 end)          as status_succeed,
+        min(begin_run_time)      as task_begin,
+        max(finish_time)         as task_finished
+        from phoenix_task_inst task_inst
+        WHERE
+        task_inst.task_type in ('0', '5')
+        and node_name not like 'll_%'
+        and (node_name  like 'n_%' or node_name  in ('check_gs','check_hx','datax_oracle_to_odps','make_conf','mget','ossput','update_version_ls'))
+        and task_inst.gmtdate =#{gmtDate}
+
+        group by app_id, bizdate) jg
+        on conf.app_id = jg.app_id
+        where upper(conf.name) like 'SC_J%T' or upper(conf.name) like 'SC_J%_GSZJ'
+        order by conf.name;
+    </select>
+    <select id="findZipBaseInfo" resultMap="baseInfo" parameterType="java.sql.Timestamp">
+        select
+        conf.name                                                     as name,
+        jg.app_id                                                  as app_id,
+        jg.bizdate                                                 as biz_date,
+        jg.task_count                                              as task_count,
+        jg.status_not_running                                      as status_not_running,
+        jg.status_waiting                                          as status_waiting,
+        jg.status_waiting_resource                                 as status_waiting_resource,
+        jg.status_running                                          as status_running,
+        jg.status_failed                                           as status_failed,
+        jg.status_succeed                                          as status_succeed,
+        jg.task_begin                                              as task_begin,
+        jg.task_finished                                           as task_finished,
+        to_char(jg.task_finished - jg.task_begin, 'dd天HH24:MI:SS') as task_working_time
+        from phoenix_app_config conf
+        left outer join (select
+        task_inst.app_id,
+        task_inst.bizdate,
+        COUNT(task_inst.task_id) as task_count,
+        sum(case when task_inst.status = 1
+        then 1
+        else 0 end)          as status_not_running,
+        sum(case when task_inst.status = 2
+        then 1
+        else 0 end)          as status_waiting,
+        sum(case when task_inst.status = 3
+        then 1
+        else 0 end)          as status_waiting_resource,
+        sum(case when task_inst.status = 4
+        then 1
+        else 0 end)          as status_running,
+        sum(case when task_inst.status = 5
+        then 1
+        else 0 end)          as status_failed,
+        sum(case when task_inst.status = 6
+        then 1
+        else 0 end)          as status_succeed,
+        min(begin_run_time)      as task_begin,
+        max(finish_time)         as task_finished
+        from phoenix_task_inst task_inst
+        WHERE
+        task_inst.task_type in ('0', '5')
+        and node_name  like 'll_%'
+        and task_inst.gmtdate =#{gmtDate}
+
+        group by app_id, bizdate) jg
+        on conf.app_id = jg.app_id
+        where upper(conf.name) like 'SC_J%T' or upper(conf.name) like 'SC_J%_GSZJ'
+        order by conf.name;
+    </select>
+    <select id="findNotRunningTaskInfo" resultMap="taskInfo" parameterType="java.util.HashMap"  >
+        SELECT t.node_name
+        ,t.task_id
+        ,c.name as pro_name
+        ,t.begin_run_time
+        ,t.finish_time
+        FROM phoenix_task_inst t
+        JOIN phoenix_app_config c
+        ON t.app_id=c.app_id and c.name = #{name}
+        WHERE
+        t.status = '1'
+        AND t.gmtdate = to_timestamp(#{gmtdate},'yyyy-MM-dd')
+        AND t.task_type in ('0','5');
+    </select>
+    <select id="findRunningTaskInfo" resultMap="taskInfo" parameterType="java.util.HashMap"  >
+        SELECT t.node_name
+        ,t.task_id
+        ,c.name as pro_name
+        ,t.begin_run_time
+        ,t.finish_time
+        FROM phoenix_task_inst t
+        JOIN phoenix_app_config c
+        ON t.app_id=c.app_id and c.name = #{name}
+        WHERE
+        t.status = '4'
+        AND t.gmtdate = to_timestamp(#{gmtdate},'yyyy-MM-dd')
+        AND t.task_type in ('0','5');
+    </select>
+    <select id="findFailedTaskInfo" resultMap="taskInfo" parameterType="java.util.HashMap"  >
+  SELECT t.node_name
+              ,t.task_id
+              ,c.name as pro_name
+              ,t.begin_run_time
+              ,t.finish_time
+          FROM phoenix_task_inst t
+          JOIN phoenix_app_config c
+            ON t.app_id=c.app_id and c.name = #{name}
+         WHERE
+            t.status = '5'
+           AND t.gmtdate = to_timestamp(#{gmtdate},'yyyy-MM-dd')
+           AND t.task_type in ('0','5');
+    </select>
+    <select id="findFullTaskInfo" resultMap="taskInfo" parameterType="java.util.HashMap"  >
+        SELECT t.node_name
+        ,t.task_id
+        ,c.name as pro_name
+        ,t.begin_run_time
+        ,t.finish_time
+        FROM phoenix_task_inst t
+        JOIN phoenix_app_config c
+        ON t.app_id=c.app_id and c.name = #{name}
+        WHERE t.gmtdate = to_timestamp(#{gmtdate},'yyyy-MM-dd')
+        AND t.task_type in ('0','5');
+    </select>
+    <select id="findWaitingTimeTaskInfo" resultMap="taskInfo" parameterType="java.util.HashMap"  >
+        SELECT t.node_name
+        ,t.task_id
+        ,c.name as pro_name
+        ,t.begin_run_time
+        ,t.finish_time
+        FROM phoenix_task_inst t
+        JOIN phoenix_app_config c
+        ON t.app_id=c.app_id and c.name = #{name}
+        WHERE  t.status = '2'
+        AND t.gmtdate = to_timestamp(#{gmtdate},'yyyy-MM-dd')
+        AND t.task_type in ('0','5');
+    </select>
+    <select id="findWaitingResourceTaskInfo" resultMap="taskInfo" parameterType="java.util.HashMap"  >
+        SELECT t.node_name
+        ,t.task_id
+        ,c.name as pro_name
+        ,t.begin_run_time
+        ,t.finish_time
+        FROM phoenix_task_inst t
+        JOIN phoenix_app_config c
+        ON t.app_id=c.app_id and c.name = #{name}
+        WHERE  t.status = '3'
+        AND t.gmtdate = to_timestamp(#{gmtdate},'yyyy-MM-dd')
+        AND t.task_type in ('0','5');
+    </select>
+</mapper>
